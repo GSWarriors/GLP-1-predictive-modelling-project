@@ -112,34 +112,114 @@ def fill_categorical_cols(df):
 
 
 
+def add_pharmacy_data(df):
 
-  """dx1_descr_mode = df['PrimaryDXDescription (SEGAL FIELD)'].mode()
-  dx2_descr_mode = df['SecondaryDXDescription (SEGAL FIELD)'].mode()
-  dx3_descr_mode = df['TertiaryDXDescription (SEGAL FIELD)'].mode()
-  dx4_descr_mode = df['FourthDXDescription (SEGAL FIELD)'].mode()
-  print("the primary dx descr mode: " + str(dx1_descr_mode))
-  print()
-  print("the secondary dx descr mode: " + str(dx1_descr_mode))
-  print()
-  print("the tertiary dx descr mode: " + str(dx1_descr_mode))
-  print()
-  print("the fourth dx descr mode: " + str(dx1_descr_mode))
-  print()
 
-  #now fill all missing values (labelled as 'None' in the dx descriptions)
-  df['PrimaryDXDescription (SEGAL FIELD)'] = df['PrimaryDXDescription (SEGAL FIELD)'].fillna(dx1_descr_mode)
-  df['SecondaryDXDescription (SEGAL FIELD)'] = df['SecondaryDXDescription (SEGAL FIELD)'].fillna(dx2_descr_mode)
-  df['TertiaryDXDescription (SEGAL FIELD)'] = df['TertiaryDXDescription (SEGAL FIELD)'].fillna(dx3_descr_mode)
-  df['FourthDXDescription (SEGAL FIELD)'] = df['FourthDXDescription (SEGAL FIELD)'].fillna(dx4_descr_mode)
+    pharmacy_df = pd.DataFrame(df, columns=[
+      "patient_id", "claim_reference_number", "product_name", "days_supply",
+      "label_name", "age", "date_of_service", "BMI"
+    ])
 
-  print("the fourth dx description: " + str(df['FourthDXDescription (SEGAL FIELD)']))
-  print()"""
+    #check if these are actually weight gain drugs and if there are more
+    #load in the above dataframes into the dataset
+    psychiatric_wt_gain = ["olanzapine", "quetiapine", "risperidone"]
+    metabolic_wt_gain = ["insulin", "glipizide", "glyburide"]
+
+    #cardiovascular weight gain drugs
+    cardiovascular_weight_gain_drugs = {
+        "metropolol",
+        "atenolol",
+        "propanolol"
+    }
+
+    glp1_drugs = {
+        "semaglutide",
+        "liraglutide",
+        "dulaglutide",
+        "tirzepatide"
+    }
+
+    pharmacy_df["label_name_clean"] = (
+        pharmacy_df["label_name"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["label_name_clean"].isin(psychiatric_wt_gain)
+    pharmacy_df["metabolic_weight_gain_flag"] = pharmacy_df["label_name_clean"].isin(metabolic_wt_gain)
+    pharmacy_df["cardiovascular_weight_gain_flag"] = pharmacy_df["label_name_clean"].isin(cardiovascular_weight_gain_drugs)
+
+    print("the psychiatric weight gain flag: " + str(pharmacy_df["psychiatric_weight_gain_flag"]))
+    print()
+    #chronic weight gain flag creation- this is the second feature we're creating
+    #it takes into account whether a drug is psychiatric weight gain, metabolic, or cardiovascular
+    """pharmacy_df["chronic_weight_gain_drug_flag"] = (
+        df["psychiatric_weight_gain_flag"]
+        | df["metabolic_weight_gain_flag"]
+        | df["cardiovascular_weight_gain_flag"]
+    )
+
+    pharmacy_df["psych_wt_gain_flag"] = df["label_name"].isin(psychiatric_wt_gain)
+    pharmacy_df["glp1_flag"] = df["label_name"].isin(glp1s)
+
+    #combined weight gain drug flag
+    pharmacy_df["wt_gain_flag"] = df["psych_wt_gain_flag"] #expand as needed
+    patient_rate = pharmacy_df.groupby("claim_id")["wt_gain_flag"].max().mean()
+
+    print("the patient rate of weight gain by claim id: " + str(patient_rate))
+    print()
+
+    print("the chronic weight gain flag: " + str(df))
+    print()
+
+    pharmacy_df["glp1_flag"] = pharmacy_df["label_name_clean"].isin(glp1_drugs)
+    pharmacy_df["overweight_flag"] = pharmacy_df["bmi"] >= 25
+    pharmacy_df["obese_flag"] = pharmacy_df["bmi"] >= 30
+
+    #first metric: rate of being prescribed one of
+    #psychiatric, emtabolic or cardiovascular weight gain drugs
+    patient_level_flags = (
+        pharmacy_df.groupby("patient_id")
+        .agg(
+            any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
+            any_metabolic_weight_gain=("metabolic_weight_gain_flag", "max"),
+            any_cardio_weight_gain=("cardiovascular_weight_gain_flag", "max"),
+            any_chronic_weight_gain=("chronic_weight_gain_drug_flag", "max"),
+            any_glp1=("glp1_flag", "max")
+        )
+        .reset_index()
+    )"""
+
+
+
+
+"""dx1_descr_mode = df['PrimaryDXDescription (SEGAL FIELD)'].mode()
+      dx2_descr_mode = df['SecondaryDXDescription (SEGAL FIELD)'].mode()
+      dx3_descr_mode = df['TertiaryDXDescription (SEGAL FIELD)'].mode()
+      dx4_descr_mode = df['FourthDXDescription (SEGAL FIELD)'].mode()
+      print("the primary dx descr mode: " + str(dx1_descr_mode))
+      print()
+      print("the secondary dx descr mode: " + str(dx1_descr_mode))
+      print()
+      print("the tertiary dx descr mode: " + str(dx1_descr_mode))
+      print()
+      print("the fourth dx descr mode: " + str(dx1_descr_mode))
+      print()
+
+      #now fill all missing values (labelled as 'None' in the dx descriptions)
+      df['PrimaryDXDescription (SEGAL FIELD)'] = df['PrimaryDXDescription (SEGAL FIELD)'].fillna(dx1_descr_mode)
+      df['SecondaryDXDescription (SEGAL FIELD)'] = df['SecondaryDXDescription (SEGAL FIELD)'].fillna(dx2_descr_mode)
+      df['TertiaryDXDescription (SEGAL FIELD)'] = df['TertiaryDXDescription (SEGAL FIELD)'].fillna(dx3_descr_mode)
+      df['FourthDXDescription (SEGAL FIELD)'] = df['FourthDXDescription (SEGAL FIELD)'].fillna(dx4_descr_mode)
+
+      print("the fourth dx description: " + str(df['FourthDXDescription (SEGAL FIELD)']))
+print()"""
 
 
 
 
 def main():
-
     #issue fixed with column names
     df = pd.read_csv('glp1_patient_synthetic_dataset.csv', encoding="utf-8-sig")
     #conditions to search for
@@ -155,7 +235,7 @@ def main():
 
     #create boolean mask across all diagnosis columns
     mask = df[dx_columns].apply(
-        lambda col: col.str.contains(pattern, case=False, na=False, regex=True)
+        lambda col: col.astype(str).str.contains(pattern, case=False, na=False, regex=True)
     ).any(axis=1)
 
     filtered_df = df[mask]
@@ -183,55 +263,17 @@ def main():
 
     #now that we've handled all missing values/categorical, we can create the features we want
     create_weight_resistant_condition_feature(df)
-
-    #now that we've created this feature on medical side, we can load pharmacy data
-
-
     #check notes here on what aleyne said
     #now we need to add features based on pharmacy data and thresholds
-    print("the new dataframe: " + str(new_df['PrimaryDXDescription (SEGAL FIELD)'].isna().sum()))
+    """print("the new dataframe: " + str(new_df['PrimaryDXDescription (SEGAL FIELD)'].isna().sum()))
     print("the new dataframe: " + str(new_df['SecondaryDXDescription (SEGAL FIELD)'].isna().sum()))
     print("the new dataframe: " + str(new_df['TertiaryDXDescription (SEGAL FIELD)'].isna().sum()))
     print("the new dataframe: " + str(new_df['FourthDXDescription (SEGAL FIELD)'].isna().sum()))
-    print()
-    #successfully know that nothing in dataframe has na in it
+    print()"""
+    #adding the pharmacy data we've generated
+    pharmacy_df = pd.read_csv("pharmacy_data.csv")
+    add_pharmacy_data(pharmacy_df)
 
-    data = [
-      # claim_id, label_name, product_name, days_supply, age, date_of_service, BMI
-      (1001, "metformin", "Metfomin HCl 500mg", 30, 52, "2025-01-05", 31.2),
-      (1002, "olanzapine", "Olanzapine 10mg", 30, 45, "2025-01-10", 29.5),
-      (1003, "lisinopril", "Lisinopril 20mg", 90, 60, "2025-01-15", 28.0),
-      (1004, "semaglutide", "Ozempic", 30, 52, "2025-02-01", 31.2),
-      (1005, "quetiapine", "Quetiapine 50mg", 60, 38, "2025-02-10", 33.1),
-      (1006, "atorvastatin", "Atorvastatin 40mg", 90, 60, "2025-02-15", 28.0),
-      (1007, "liraglutide", "Victoza", 30, 47, "2025-03-01", 35.4),
-      (1008, "risperidone", "Risperidone 2mg", 30, 47, "2025-03-05", 35.4),
-      (1009, "amlodipine", "Amlodipine 10mg", 90, 55, "2025-03-10", 30.0)
-    ]
-
-    df = pd.DataFrame(data, columns=[
-        "claim_id", "label_name", "product_name", "days_supply",
-        "age", "date_of_service", "BMI"
-    ])
-
-    #check if these are actually weight gain drugs and if there are more
-    #load in the above dataframes into the dataset
-    psychiatric_wt_gain = ["olanzapine", "quetiapine", "risperidone"]
-    metabolic_wt_gain = ["insulin"]
-    cardio_wt_gain = ["beta_blocker"]
-
-    glp1s = ["semaglutide", "liraglutide"]
-    df["psych_wt_gain_flag"] = df["label_name"].isin(psychiatric_wt_gain) 
-    df["glp1_flag"] = df["label_name"].isin(glp1s)
-
-    #combined weight gain drug flag
-    df["wt_gain_flag"] = df["psych_wt_gain_flag"] #expand as needed
-    patient_rate = df.groupby("claim_id")["wt_gain_flag"].max().mean()
-
-    print("the patient rate of weight gain by claim id: " + str(patient_rate))
-    print()
-    
 
 
 main()
-
