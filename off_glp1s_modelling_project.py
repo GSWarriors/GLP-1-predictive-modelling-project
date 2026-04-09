@@ -110,10 +110,8 @@ def fill_categorical_cols(df):
 
 
 
-
-
-def add_pharmacy_data(df):
-
+"""creating a flag for whether or not someone has gotten chronic weight gain."""
+def create_chronic_weight_flag(df):
 
     pharmacy_df = pd.DataFrame(df, columns=[
       "patient_id", "claim_reference_number", "product_name", "days_supply",
@@ -152,69 +150,72 @@ def add_pharmacy_data(df):
 
     print("the psychiatric weight gain flag: " + str(pharmacy_df["psychiatric_weight_gain_flag"]))
     print()
+
+
     #chronic weight gain flag creation- this is the second feature we're creating
     #it takes into account whether a drug is psychiatric weight gain, metabolic, or cardiovascular
-    """pharmacy_df["chronic_weight_gain_drug_flag"] = (
-        df["psychiatric_weight_gain_flag"]
-        | df["metabolic_weight_gain_flag"]
-        | df["cardiovascular_weight_gain_flag"]
+
+    pharmacy_df["chronic_weight_gain_drug_flag"] = (
+          pharmacy_df["psychiatric_weight_gain_flag"]
+          | pharmacy_df["metabolic_weight_gain_flag"]
+          | pharmacy_df["cardiovascular_weight_gain_flag"]
     )
 
-    pharmacy_df["psych_wt_gain_flag"] = df["label_name"].isin(psychiatric_wt_gain)
-    pharmacy_df["glp1_flag"] = df["label_name"].isin(glp1s)
 
-    #combined weight gain drug flag
-    pharmacy_df["wt_gain_flag"] = df["psych_wt_gain_flag"] #expand as needed
-    patient_rate = pharmacy_df.groupby("claim_id")["wt_gain_flag"].max().mean()
+    #map the flag to a 'Y' or 'N' flag value as a feature so we can see where the flag is
+    pharmacy_df["chronic_weight_gain_drug_flag"] = np.where(
+        pharmacy_df["chronic_weight_gain_drug_flag"],
+        "Y",
+        "N"
+    )
 
-    print("the patient rate of weight gain by claim id: " + str(patient_rate))
+
+    chronic_weight_rows = pharmacy_df[pharmacy_df["chronic_weight_gain_drug_flag"] == 'Y']
+    print("the chronic weight rows: " + str(chronic_weight_rows))
     print()
 
-    print("the chronic weight gain flag: " + str(df))
-    print()
 
-    pharmacy_df["glp1_flag"] = pharmacy_df["label_name_clean"].isin(glp1_drugs)
-    pharmacy_df["overweight_flag"] = pharmacy_df["bmi"] >= 25
-    pharmacy_df["obese_flag"] = pharmacy_df["bmi"] >= 30
-
-    #first metric: rate of being prescribed one of
-    #psychiatric, emtabolic or cardiovascular weight gain drugs
-    patient_level_flags = (
-        pharmacy_df.groupby("patient_id")
-        .agg(
-            any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
-            any_metabolic_weight_gain=("metabolic_weight_gain_flag", "max"),
-            any_cardio_weight_gain=("cardiovascular_weight_gain_flag", "max"),
-            any_chronic_weight_gain=("chronic_weight_gain_drug_flag", "max"),
-            any_glp1=("glp1_flag", "max")
-        )
-        .reset_index()
-    )"""
+    #find rate at which being prescribed these drugs
+    establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs)
 
 
 
 
-"""dx1_descr_mode = df['PrimaryDXDescription (SEGAL FIELD)'].mode()
-      dx2_descr_mode = df['SecondaryDXDescription (SEGAL FIELD)'].mode()
-      dx3_descr_mode = df['TertiaryDXDescription (SEGAL FIELD)'].mode()
-      dx4_descr_mode = df['FourthDXDescription (SEGAL FIELD)'].mode()
-      print("the primary dx descr mode: " + str(dx1_descr_mode))
-      print()
-      print("the secondary dx descr mode: " + str(dx1_descr_mode))
-      print()
-      print("the tertiary dx descr mode: " + str(dx1_descr_mode))
-      print()
-      print("the fourth dx descr mode: " + str(dx1_descr_mode))
-      print()
+def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
 
-      #now fill all missing values (labelled as 'None' in the dx descriptions)
-      df['PrimaryDXDescription (SEGAL FIELD)'] = df['PrimaryDXDescription (SEGAL FIELD)'].fillna(dx1_descr_mode)
-      df['SecondaryDXDescription (SEGAL FIELD)'] = df['SecondaryDXDescription (SEGAL FIELD)'].fillna(dx2_descr_mode)
-      df['TertiaryDXDescription (SEGAL FIELD)'] = df['TertiaryDXDescription (SEGAL FIELD)'].fillna(dx3_descr_mode)
-      df['FourthDXDescription (SEGAL FIELD)'] = df['FourthDXDescription (SEGAL FIELD)'].fillna(dx4_descr_mode)
+  pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["label_name"].isin(psychiatric_wt_gain)
+  pharmacy_df["glp1_flag"] = pharmacy_df["label_name"].isin(glp1_drugs)
 
-      print("the fourth dx description: " + str(df['FourthDXDescription (SEGAL FIELD)']))
-print()"""
+  #combined weight gain drug flag
+  pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["psychiatric_weight_gain_flag"] #expand as needed
+  patient_rate = pharmacy_df.groupby("claim_reference_number")["psychiatric_weight_gain_flag"].max().mean()
+  pharmacy_df["glp1_flag"] = pharmacy_df["label_name_clean"].isin(glp1_drugs)
+  pharmacy_df["overweight_flag"] = pharmacy_df["BMI"] >= 25
+  pharmacy_df["obese_flag"] = pharmacy_df["BMI"] >= 30
+
+
+  print(pharmacy_df["psychiatric_weight_gain_flag"].value_counts(dropna=False))
+  print(pharmacy_df["glp1_flag"].value_counts(dropna=False))
+  print(pharmacy_df["chronic_weight_gain_drug_flag"].value_counts(dropna=False))
+  print()
+
+  #first metric: rate of being prescribed one of
+  #psychiatric, emtabolic or cardiovascular weight gain drugs
+  """patient_level_flags = (
+      pharmacy_df.groupby("patient_id")
+      .agg(
+          any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
+          any_metabolic_weight_gain=("metabolic_weight_gain_flag", "max"),
+          any_cardio_weight_gain=("cardiovascular_weight_gain_flag", "max"),
+          any_chronic_weight_gain=("chronic_weight_gain_drug_flag", "max"),
+          any_glp1=("glp1_flag", "max")
+      )
+      .reset_index()
+  )
+
+  print("the rate at which being prescribed drugs: " + str(patient_level_flags))
+  print()"""
+    
 
 
 
@@ -272,7 +273,10 @@ def main():
     print()"""
     #adding the pharmacy data we've generated
     pharmacy_df = pd.read_csv("pharmacy_data.csv")
-    add_pharmacy_data(pharmacy_df)
+    
+    #create the chronic weight gain flag
+    create_chronic_weight_flag(pharmacy_df)
+
 
 
 
