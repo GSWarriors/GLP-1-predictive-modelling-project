@@ -148,8 +148,6 @@ def create_chronic_weight_flag(df):
     pharmacy_df["metabolic_weight_gain_flag"] = pharmacy_df["label_name_clean"].isin(metabolic_wt_gain)
     pharmacy_df["cardiovascular_weight_gain_flag"] = pharmacy_df["label_name_clean"].isin(cardiovascular_weight_gain_drugs)
 
-    print("the psychiatric weight gain flag: " + str(pharmacy_df["psychiatric_weight_gain_flag"]))
-    print()
 
 
     #chronic weight gain flag creation- this is the second feature we're creating
@@ -171,19 +169,18 @@ def create_chronic_weight_flag(df):
 
 
     chronic_weight_rows = pharmacy_df[pharmacy_df["chronic_weight_gain_drug_flag"] == 'Y']
-    print("the chronic weight rows: " + str(chronic_weight_rows))
-    print()
+    #("the chronic weight rows: " + str(chronic_weight_rows))
+    #print()
 
 
     #find rate at which being prescribed these drugs
     establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs)
 
 
-
-
+#making this to establish the drug rate for weight gain with psychiatric drugs
 def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
 
-  pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["label_name"].isin(psychiatric_wt_gain)
+  """pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["label_name"].isin(psychiatric_wt_gain)
   pharmacy_df["glp1_flag"] = pharmacy_df["label_name"].isin(glp1_drugs)
 
   #combined weight gain drug flag
@@ -198,10 +195,10 @@ def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
   print(pharmacy_df["glp1_flag"].value_counts(dropna=False))
   print(pharmacy_df["chronic_weight_gain_drug_flag"].value_counts(dropna=False))
   print()
-
   #first metric: rate of being prescribed one of
-  #psychiatric, emtabolic or cardiovascular weight gain drugs
-  """patient_level_flags = (
+  #psychiatric, metabolic or cardiovascular weight gain drugs
+
+  patient_level_flags = (
       pharmacy_df.groupby("patient_id")
       .agg(
           any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
@@ -215,7 +212,61 @@ def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
 
   print("the rate at which being prescribed drugs: " + str(patient_level_flags))
   print()"""
-    
+
+  pharmacy_df = pharmacy_df.copy()
+  pharmacy_df["label_name_clean"] = (
+      pharmacy_df["label_name"] 
+      .astype(str)
+      .str.strip()
+      .str.lower()
+  )
+
+  pharmacy_df["overweight_flag"] = pharmacy_df["BMI"] >= 25 
+  pharmacy_df["obese_flag"] = pharmacy_df["BMI"] >= 30
+
+  patient_level_flags = (
+      pharmacy_df.groupby("patient_id")
+      .agg(
+          any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
+          any_metabolic_weight_gain=("metabolic_weight_gain_flag", "max"),
+          any_cardio_weight_gain=("cardiovascular_weight_gain_flag", "max"),
+          any_chronic_weight_gain=("chronic_weight_gain_drug_flag", "max"),
+          #any_glp1=("glp1_flag", "max")
+      )
+      .reset_index()
+  )
+
+  print("the patient level flags: " + str(patient_level_flags))
+  print()
+
+  #the rates can be calculated by taking the mena amount
+  psychiatric_wt_gain_rate = (
+    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
+  )
+
+  #do the same thing to get the weight gain rates for the other drugs
+  """psychiatric_wt_gain_rate = (
+    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
+  )
+    psychiatric_wt_gain_rate = (
+    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
+  )
+     psychiatric_wt_gain_rate = (
+    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
+  )"""
+  
+  print("The psychiatric weight gain rate: " + str(psychiatric_wt_gain_rate))
+  print()
+
+  """metabolic_wt_gain_rate = pharmacy_df[pharmacy_df['metabolic_weight_gain_flag'] == True].sum() / len(metabolic_wt_gain)
+  cardiovascular_wt_gain_rate = pharmacy_df[pharmacy_df['cardiovascular_weight_gain_flag'] == True].sum() / len(cardiovascular_weight_gain_drugs)
+  chronic_wt_gain_rate = pharmacy_df[pharmacy_df['chronic_weight_gain_drug_flag'] == True].sum() / len(glp1_drugs)
+
+  print("the psychiatric weight gain rate: " + str(psychiatric_wt_gain_rate))
+  print()"""
+
+
+
 
 
 
@@ -273,7 +324,7 @@ def main():
     print()"""
     #adding the pharmacy data we've generated
     pharmacy_df = pd.read_csv("pharmacy_data.csv")
-    
+
     #create the chronic weight gain flag
     create_chronic_weight_flag(pharmacy_df)
 
