@@ -265,6 +265,42 @@ def create_days_on_drugs_features(pharmacy_df):
 
 
 
+"""Creating bin for pharmacy data age ranges"""
+def create_age_binning(pharmacy_df):
+  #Make sure the age column is numeric.
+  #Define the bin edges.
+  #Define the labels for each bin.
+  #Use pd.cut() to create a new grouped column. 
+  age_bins = [0, 24, 34, 44, 54, 64, 120]
+  age_labels = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+
+  #create the age group column 
+
+  pharmacy_df['age_group'] = pd.cut(pharmacy_df['age'],
+                              bins=age_bins,
+                              labels=age_labels,
+                              right=True)
+  
+  print("the dataframe: " + str(pharmacy_df[['age', 'age_group']].head(100)))
+  print()
+  #ages have binned successfully
+
+  #sort the value counts in the age group we have
+  #then plot a barplot with the values from age counts with title, label, and show plot 
+  #plot the age ranges we have
+  age_counts = pharmacy_df['age_group'].value_counts().sort_index()
+  plt.figure(figsize=(8, 5))
+  plt.bar(age_counts.index.astype(str), age_counts.values)
+  plt.title('Age Group Distribution')
+  plt.xlabel('Age Group')
+  plt.ylabel('Count')
+  plt.xticks(rotation=45) 
+  plt.tight_layout()
+  plt.show()
+
+
+  return pharmacy_df
+
 
 
 
@@ -328,6 +364,7 @@ def main():
     #create the chronic weight gain flag and the days on weight gain drugs features
     create_chronic_weight_flag(pharmacy_df)
     create_days_on_drugs_features(pharmacy_df)
+    create_age_binning(pharmacy_df)
 
 
 
