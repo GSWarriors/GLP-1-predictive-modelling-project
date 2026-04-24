@@ -117,6 +117,8 @@ def create_chronic_weight_flag(df):
       "patient_id", "claim_reference_number", "product_name", "days_supply",
       "label_name", "age", "date_of_service", "BMI"
     ])
+    print("the pharmacy dataframe: " + str(pharmacy_df))
+    print()
 
     #check if these are actually weight gain drugs and if there are more
     #load in the above dataframes into the dataset
@@ -169,59 +171,24 @@ def create_chronic_weight_flag(df):
 
 
     chronic_weight_rows = pharmacy_df[pharmacy_df["chronic_weight_gain_drug_flag"] == 'Y']
-    #("the chronic weight rows: " + str(chronic_weight_rows))
-    #print()
-
 
     #find rate at which being prescribed these drugs
-    establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs)
+    #establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs)
 
 
+"""#don't know if we need this feature at all
 #making this to establish the drug rate for weight gain with psychiatric drugs
 def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
 
-  """pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["label_name"].isin(psychiatric_wt_gain)
-  pharmacy_df["glp1_flag"] = pharmacy_df["label_name"].isin(glp1_drugs)
-
-  #combined weight gain drug flag
-  pharmacy_df["psychiatric_weight_gain_flag"] = pharmacy_df["psychiatric_weight_gain_flag"] #expand as needed
-  patient_rate = pharmacy_df.groupby("claim_reference_number")["psychiatric_weight_gain_flag"].max().mean()
-  pharmacy_df["glp1_flag"] = pharmacy_df["label_name_clean"].isin(glp1_drugs)
-  pharmacy_df["overweight_flag"] = pharmacy_df["BMI"] >= 25
-  pharmacy_df["obese_flag"] = pharmacy_df["BMI"] >= 30
-
-
-  print(pharmacy_df["psychiatric_weight_gain_flag"].value_counts(dropna=False))
-  print(pharmacy_df["glp1_flag"].value_counts(dropna=False))
-  print(pharmacy_df["chronic_weight_gain_drug_flag"].value_counts(dropna=False))
-  print()
-  #first metric: rate of being prescribed one of
-  #psychiatric, metabolic or cardiovascular weight gain drugs
-
-  patient_level_flags = (
-      pharmacy_df.groupby("patient_id")
-      .agg(
-          any_psych_weight_gain=("psychiatric_weight_gain_flag", "max"),
-          any_metabolic_weight_gain=("metabolic_weight_gain_flag", "max"),
-          any_cardio_weight_gain=("cardiovascular_weight_gain_flag", "max"),
-          any_chronic_weight_gain=("chronic_weight_gain_drug_flag", "max"),
-          any_glp1=("glp1_flag", "max")
-      )
-      .reset_index()
-  )
-
-  print("the rate at which being prescribed drugs: " + str(patient_level_flags))
-  print()"""
-
   pharmacy_df = pharmacy_df.copy()
   pharmacy_df["label_name_clean"] = (
-      pharmacy_df["label_name"] 
+      pharmacy_df["label_name"]
       .astype(str)
       .str.strip()
       .str.lower()
   )
 
-  pharmacy_df["overweight_flag"] = pharmacy_df["BMI"] >= 25 
+  pharmacy_df["overweight_flag"] = pharmacy_df["BMI"] >= 25
   pharmacy_df["obese_flag"] = pharmacy_df["BMI"] >= 30
 
   patient_level_flags = (
@@ -244,26 +211,60 @@ def establish_drug_rate(pharmacy_df, psychiatric_wt_gain, glp1_drugs):
     pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
   )
 
+  #check on this weight gain rate later
   #do the same thing to get the weight gain rates for the other drugs
-  """psychiatric_wt_gain_rate = (
-    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
-  )
-    psychiatric_wt_gain_rate = (
-    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
-  )
-     psychiatric_wt_gain_rate = (
-    pharmacy_df.groupby("patient_id")["psychiatric_weight_gain_flag"].max().mean()
-  )"""
-  
-  print("The psychiatric weight gain rate: " + str(psychiatric_wt_gain_rate))
-  print()
 
-  """metabolic_wt_gain_rate = pharmacy_df[pharmacy_df['metabolic_weight_gain_flag'] == True].sum() / len(metabolic_wt_gain)
+  metabolic_wt_gain_rate = pharmacy_df[pharmacy_df['metabolic_weight_gain_flag'] == True].sum() / len(metabolic_wt_gain)
   cardiovascular_wt_gain_rate = pharmacy_df[pharmacy_df['cardiovascular_weight_gain_flag'] == True].sum() / len(cardiovascular_weight_gain_drugs)
   chronic_wt_gain_rate = pharmacy_df[pharmacy_df['chronic_weight_gain_drug_flag'] == True].sum() / len(glp1_drugs)
 
   print("the psychiatric weight gain rate: " + str(psychiatric_wt_gain_rate))
   print()"""
+
+
+"""next step is creating the threshold feature for the days on any drugs people are prescribed
+that are involved in some kind of weight gain. The more days someone is on these drugs could signal that they'll
+stay on GLP-1s longer because they need some kind of weight loss."""
+# Create days-on-drugs features using label_name according to the conditions above
+
+def create_days_on_drugs_features(pharmacy_df):
+    df = pharmacy_df.copy()
+    psychiatric_wt_gain = ["olanzapine", "quetiapine", "risperidone"]
+    metabolic_wt_gain = ["insulin", "glipizide", "glyburide"]
+    cardiovascular_wt_gain = ["metoprolol", "atenolol", "propranolol"]
+
+    df["label_name_clean"] = (
+        df["label_name"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    df["days_supply"] = pd.to_numeric(df["days_supply"], errors="coerce").fillna(0)
+    df["psychiatric_days"] = np.where(df["label_name_clean"].isin(metabolic_wt_gain), df["days_supply"], 0)
+    df["metabolic_days"] = np.where(df["label_name_clean"].isin(metabolic_wt_gain), df["days_supply"], 0)
+    df["cardiovascular_days"] = np.where(df["label_name_clean"].isin(cardiovascular_wt_gain), df["days_supply"], 0)
+    df["chronic_weight_gain_days"] = (df["psychiatric_days"] + df["metabolic_days"] + df["cardiovascular_days"])
+
+    #finally, we need to create the actual features for the patient days
+
+    patient_days_features = (
+      df.groupby("patient_id", as_index=False)
+        .agg(
+            psychiatric_days_on_drugs=("psychiatric_days", "sum"),
+            metabolic_days_on_drugs=("metabolic_days", "sum"),
+            cardiovascular_days_on_drugs=("cardiovascular_days", "sum"),
+            chronic_weight_gain_days_on_drugs=("chronic_weight_gain_days", "sum")
+        )
+    )
+
+    print("the patient days features we have: " + str(patient_days_features))
+    print()
+
+    return patient_days_features
+
+
+
 
 
 
@@ -314,19 +315,19 @@ def main():
     new_df = fill_categorical_cols(df)
 
     #now that we've handled all missing values/categorical, we can create the features we want
+    #this is the feature we can create with the medical data we have
     create_weight_resistant_condition_feature(df)
+
     #check notes here on what aleyne said
     #now we need to add features based on pharmacy data and thresholds
-    """print("the new dataframe: " + str(new_df['PrimaryDXDescription (SEGAL FIELD)'].isna().sum()))
-    print("the new dataframe: " + str(new_df['SecondaryDXDescription (SEGAL FIELD)'].isna().sum()))
-    print("the new dataframe: " + str(new_df['TertiaryDXDescription (SEGAL FIELD)'].isna().sum()))
-    print("the new dataframe: " + str(new_df['FourthDXDescription (SEGAL FIELD)'].isna().sum()))
-    print()"""
     #adding the pharmacy data we've generated
     pharmacy_df = pd.read_csv("pharmacy_data.csv")
+    print("the pharmacy dataframe: " + str(pharmacy_df))
+    print()
 
-    #create the chronic weight gain flag
+    #create the chronic weight gain flag and the days on weight gain drugs features
     create_chronic_weight_flag(pharmacy_df)
+    create_days_on_drugs_features(pharmacy_df)
 
 
 
